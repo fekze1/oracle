@@ -1,68 +1,64 @@
 from aiogram import types
 
 import bot
+from generic import Gen
+from source import Word
 import main
 import model, view
 from database import DATABASE
 
+all_users = {
+}
+
+
+
 async def start_game(message: types.Message):
-    await model.set_game()
-    await view.start_game(message)
-    name = message.from_user.first_name
-    await model.set_player_name(name)
+    global all_users
+    tgid = message.from_user.id
+    wordDatabase, wordDataGraph = main.fill([], main.DataGraph())
+    g = Gen()
+    g.addSign("Живое")
 
-    # Бот спрашивет
-    if model.steps_amount == 0:
-        await view.bot_ask(message, "Живое?")
-    else:
-        await view.bot_ask(message, str(main.findHyphSign(model.probword.value, model.current_node) + '?'))
+    all_users[tgid] = {
+        'gen': g,
+        'wordDatabase': wordDatabase,
+        'wordDataGraph':  wordDataGraph,
+        'currentNode': 'Живое',
+        }
 
-    # Человек отвечает
-    model.answer = 'test'
-    await player_turn(message)
-    # Бот ходит, т.е. обрабатывает
-    print("testing")
-    if (model.answer != 'test'):
-        await bot_turn(message)
-
-async def bot_turn(message: types.Message):
-    # ЗДЕСЬ БОТ ОБРАБАТЫВАЕТ ОТВЕТ ПОЛЬЗОВАТЕЛЯ в game()
-
-    match model.answer:
-        case 'yes':
-            if (model.steps_amount == 0):
-                model.current_node = 'Живое'
-            else:
-                model.current_node = model.next_node
-            model.total_gen.addSign(model.current_node)
-            model.probword = main.findHyphothesis(model.total_gen, main.wordDatabase)
-        case 'no':
-            if (model.steps_amount == 0):
-                model.current_node = 'Неживое'
-                model.total_gen.addSign(model.current_node)
-            else:
-                sides = main.wordDataGraph.getSideNeighbours(main.findHyphSign(model.probword.value, model.current_node))
-                model.probword = main.findHyphFromSides(model.total_gen, sides, main.wordDatabase)
-                model.total_gen.addSign(main.findHyphSign(model.probword.value, model.current_node))
-
-    #await model.set_total_word(model.current_node)
-    #name = await model.get_player_name()
-    #total_word = await model.get_total_word()
-
-    if (model.current_node not in DATABASE):
-        await bot.bot.send_message(message.chat.id, "test123")
-    if (model.current_node in DATABASE):
-        await view.bot_win(message, model.current_node)
-        await model.set_game()
+    return await bot.bot.send_message(message.chat.id, 'живое?')
 
 
 async def player_turn(message: types.Message):
-    game = await model.get_game()
+    tgid = message.from_user.id
+    gen = all_users[tgid]['gen']
+    wordDatabase = all_users[tgid]['wordDatabase']
+    wordDataGraph = all_users[tgid]['wordDataGraph']
+    currentNode = all_users[tgid]['currentNode']
 
-    if (game):
-        if message.text == '/game':
-            return
+    probWord = main.findHyphothesis(gen, wordDatabase)
+    ans = message.text
+
+    match ans:
+        case "yes":
+            currentNode = main.findHyphSign(probWord.value, currentNode)
+            gen.addSign(currentNode)
+            probWord = main.findHyphothesis(gen, wordDatabase)
+        case "no":
+            side = wordDataGraph.getSideNeighbours(main.findHyphSign(probWord.value, currentNode))
+            probWord = main.findHyphFromSides(gen, side, wordDatabase)
+            gen.addSign(main.findHyphSign(probWord.value, currentNode))
+
+    all_users[tgid] = {
+        'currentNode': currentNode,
+        'gen': gen,
+        'wordDatabase': wordDatabase,
+        'wordDataGraph': wordDataGraph
+    }
+
+
+    if ans in ["yes",  "no"]:
+        if max(gen.fitness) > 0.8:
+            return await bot.bot.send_message(message.chat.id, probWord.value)
         else:
-            model.answer = message.text
-
-    await bot_turn(message)
+           await bot.bot.send_message(message.chat.id, str(main.findHyphSign(probWord.value, currentNode)) + '?')

@@ -7,8 +7,8 @@ wordDataGraph = DataGraph()
 
 STREAM = list()
 
-def fill():
-    global DATABASE, WORDID, wordDatabase, wordDataGraph
+def fill(wordDatabase, wordDataGraph):
+    global DATABASE, WORDID
     for i in DATABASE:
         newWord = Word(i, WORDID)
         WORDID += 1
@@ -25,13 +25,14 @@ def fill():
 
         wordDatabase.append(newWord)
         wordDataGraph.addWord(newWord)
-
+    return wordDatabase, wordDataGraph
 def findHyphothesis(gen, wordDB):
     return wordDB[gen.fitness.index(max(gen.fitness))]
 
 
 def findHyphSign(hypho, currentNode):
     global DATABASE
+
     prev = str()
     for i in DATABASE[hypho]:
         if (i == currentNode):
@@ -64,9 +65,6 @@ def game(wordDB, wordDG):
     fill()
     currentNode = str()
     probWord = Word()
-    NextNodes = list()
-    PrevNodes = list()
-    SideNodes = list()
     answer = str()
     gen = Gen()
 
@@ -83,8 +81,7 @@ def game(wordDB, wordDG):
     probWord = findHyphothesis(gen, wordDB)
 
     while (max(gen.fitness) < 0.8):
-        #nextNodes = wordDG.getNextNeighbours(currentNode)
-
+        #nextNodes = w  ordDG.getNextNeighbours(currentNode)
         print(str(findHyphSign(probWord.value, currentNode)) + '?')
         answer = input()
 
@@ -98,3 +95,4 @@ def game(wordDB, wordDG):
                 probWord = findHyphFromSides(gen, side, wordDB)
                 gen.addSign(findHyphSign(probWord.value, currentNode))
     return probWord.value
+# game(wordDatabase, wordDataGraph)

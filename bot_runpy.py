@@ -9,6 +9,5 @@ async def on_startup(_):
 
 handlers.register_handlers(dp)
 
-main.fill()
 
 executor.start_polling(dp, skip_updates=True, on_startup=on_startup)
