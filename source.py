@@ -49,13 +49,11 @@ class DataGraph:
 
     def getSideNeighbours(self, signValue):
         prev = list(self.getPrevNeighbours(signValue))[0]
-        neighbours = self.getNextNeighbours(prev)
-        if (neighbours[0] == signValue):
-            return None
+        sides = list(self.data.neighbors(prev))
 
-        neighbours.remove(signValue)
+        sides.remove(signValue)
 
-        return neighbours
+        return sides
 
     def drawData(self):
 

@@ -1,98 +1,100 @@
 from source import Word, Sign, DataGraph, WORDID
-from database import DATABASE
-from questions import questionChoose
+from database import DATABASE, AMOUNT_OF_SIGNS
 from generic import Gen
 
 wordDatabase = []
 wordDataGraph = DataGraph()
 
-for i in DATABASE:
-    newWord = Word(i, WORDID)
-    WORDID += 1
+STREAM = list()
 
-    count = 1
-    for j in DATABASE[i]:
-        if (j == None):
+def fill():
+    global DATABASE, WORDID, wordDatabase, wordDataGraph
+    for i in DATABASE:
+        newWord = Word(i, WORDID)
+        WORDID += 1
+
+        count = 1
+        for j in DATABASE[i]:
+            if (j == None):
+                count += 1
+                continue
+            newSign = Sign(j, int(str(newWord.ID) + str(count)), int(str(newWord.ID) + str(count)))
             count += 1
-            continue
-        newSign = Sign(j, int(str(newWord.ID) + str(count)), int(str(newWord.ID) + str(count)))
+
+            newWord.addSign(newSign)
+
+        wordDatabase.append(newWord)
+        wordDataGraph.addWord(newWord)
+
+def findHyphothesis(gen, wordDB):
+    return wordDB[gen.fitness.index(max(gen.fitness))]
+
+
+def findHyphSign(hypho, currentNode):
+    global DATABASE
+    prev = str()
+    for i in DATABASE[hypho]:
+        if (i == currentNode):
+            return prev
+        prev = i
+
+def findHyphFromSides(gen, sides, wordDB):
+    global DATABASE
+    maxIndex = 0
+    maxFit = 0
+    count = 0
+    flag = False
+    for i in DATABASE:
+        for j in DATABASE[i]:
+            if (j in sides and j != 'Живое' and j != 'Неживое'):
+                flag = True
+                break
         count += 1
 
-        newWord.addSign(newSign)
+        if (flag == True):
+            if gen.fitness[count] > maxFit:
+                maxFit = gen.fitness[count]
+                maxIndex = count
 
-    wordDatabase.append(newWord)
-    wordDataGraph.addWord(newWord)
+        flag = False
 
-def getQuestion(sign):
-    wordID = 1
-    for i in DATABASE:
-        signID = 1
-        for j in DATABASE[i]:
-            if (j == sign):
-                return int(str(wordID) + str(signID - 1))
-            signID += 1
-        wordID += 1
+    return wordDB[maxIndex - 1]
 
-wordDataGraph.drawData()
+def game(wordDB, wordDG):
+    fill()
+    currentNode = str()
+    probWord = Word()
+    NextNodes = list()
+    PrevNodes = list()
+    SideNodes = list()
+    answer = str()
+    gen = Gen()
 
-gen = Gen()
-currentNode = "START"
-probWord = ""
-currentQuestionID = 16
-
-print(questionChoose(16))
-answer = input()
-
-match answer:
-    case "Yes":
-        currentNode = "Живое"
-        currentQuestionID = 35
-    case "No":
-        currentNode = "Неживое"
-        currentQuestionID = 15
-
-gen.addSign(currentNode)
-
-while (currentNode not in DATABASE):
-    currentNodes = []
-
-    print(questionChoose(currentQuestionID))
+    print("Живое?")
     answer = input()
 
     match answer:
-        case "Yes":
-            currentNodes = wordDataGraph.getNextNeighbours(currentNode)
-            currentNode = currentNodes[0]
+        case "yes":
+            currentNode = "Живое"
+        case "no":
+            currentNode = "Неживое"
 
-            gen.addSign(currentNode)
-            currentQuestionID = getQuestion(currentNode)
+    gen.addSign(currentNode)
+    probWord = findHyphothesis(gen, wordDB)
 
-        case "No":
-            prevCurr = currentNode
-            neighbours = wordDataGraph.getSideNeighbours(currentNode)
-            try:
-                for i in neighbours:
-                    if (i not in gen.signs):
-                        currentNode = i
-                        break
-                if (currentNode == prevCurr):
-                    neighbours = wordDataGraph.getPrevNeighbours(currentNode)
-                    for i in neighbours:
-                        if (i not in gen.signs):
-                            currentNode = i
-                            break
+    while (max(gen.fitness) < 0.8):
+        #nextNodes = wordDG.getNextNeighbours(currentNode)
 
-            except:
-                try:
-                    neighbours = wordDataGraph.getPrevNeighbours(currentNode)
-                    for i in neighbours:
-                        if (i not in gen.signs):
-                            currentNode = i
-                except:
-                    break;
+        print(str(findHyphSign(probWord.value, currentNode)) + '?')
+        answer = input()
 
-            currentQuestionID = getQuestion(currentNode)
-
-
-
-
+        match answer:
+            case "yes":
+                currentNode = findHyphSign(probWord.value, currentNode)
+                gen.addSign(currentNode)
+                probWord = findHyphothesis(gen, wordDB)
+            case "no":
+                side = wordDG.getSideNeighbours(findHyphSign(probWord.value, currentNode))
+                probWord = findHyphFromSides(gen, side, wordDB)
+                gen.addSign(findHyphSign(probWord.value, currentNode))
+    return probWord.value
